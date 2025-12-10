@@ -5,10 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- PWA / Tema rengi eklemeleri -->
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Kasa Takip">
+    <meta name="apple-mobile-web-app-title" content="Kasa Takip">
     <title>Kasa Takip (Fix Sürüm)</title>
     <style>
-        * { box-sizing: border-box; }
-
         :root { --dark: #2c3e50; --blue: #007AFF; --green: #34C759; --red: #FF3B30; --orange: #FF9500; --bg: #F2F2F7; --active-tab: #007AFF; }
         
         body { 
@@ -19,8 +22,6 @@
             padding-top: env(safe-area-inset-top);
             color: #333; 
             padding-bottom: 50px; 
-            max-width: 100%;
-            overflow-x: hidden;
         }
         
         /* Layout */
@@ -29,7 +30,7 @@
         
         /* Kartlar */
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        .card-header { font-weight: 600; font-size: 1.1em; color: var(--dark); border-bottom: 1px solid #e5e5ea; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .card-header { font-weight: 600; font-size: 1.1em; color: var(--dark); border-bottom: 1px solid #e5e5ea; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
         
         /* ÖZET KARTI */
         .summary-card {
@@ -88,7 +89,7 @@
             transition: transform 0.1s;
         }
         .btn-save:active { transform: scale(0.98); }
-        .btn-reset { background: #8e8e93; font-size: 0.8em; padding: 5px 10px; border-radius: 6px; color: white; border: none; }
+        .btn-reset { background: #8e8e93; font-size: 0.8em; padding: 5px 10px; border-radius: 6px; color: white; border: none; cursor: pointer; }
 
         /* Geçmiş Tablosu */
         .history-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 0.85em; min-width: 100%; }
@@ -150,7 +151,11 @@
         <div class="card">
             <div class="card-header">
                 <span id="settingsTitle">Ayarlar (Kasa 1)</span>
-                <button class="btn-reset" onclick="hardReset()">Bu Kasayı Sıfırla</button>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button class="btn-reset" onclick="hardReset()">Bu Kasayı Sıfırla</button>
+                    <!-- Tüm kasaları sıfırlayan yeni buton -->
+                    <button class="btn-reset" onclick="resetAllKasas()">Tüm Kasaları Sıfırla</button>
+                </div>
             </div>
             <div class="settings-grid">
                 <div class="input-group">
@@ -516,6 +521,12 @@
         const tbody = document.getElementById('planBody');
         tbody.innerHTML = "";
         
+        // Kasa boşken / geçersizken patlamayı engelle
+        if (cycleBalance <= 0 || !isFinite(cycleBalance)) {
+            document.getElementById('dispProjected').innerText = "-";
+            return;
+        }
+        
         // 1. Ağırlıkları Hesapla (Geometrik Seri: 1, 2.05, 4.2...)
         // Katsayı = Odds / (Odds - 1). 
         // Örn: Oran 2.0 ise katsayı 2. Ağırlıklar: 1, 2, 4, 8...
@@ -572,8 +583,8 @@
             let currentBalance = parseFloat(document.getElementById('currentBalance').value) || 0;
             const baseBet = planAmounts[0]; 
             const investmentRatio = baseBet / cycleBalance;
-            const growthFactor = 1 + (investmentRatio * (rawAvgOdds - 1));
-            const projectedFinalBalance = currentBalance * Math.pow(growthFactor, remaining);
+            const growthFactor2 = 1 + (investmentRatio * (rawAvgOdds - 1));
+            const projectedFinalBalance = currentBalance * Math.pow(growthFactor2, remaining);
             document.getElementById('dispProjected').innerText = fmtMoney(projectedFinalBalance);
         } else if (remaining === 0) {
             document.getElementById('dispProjected').innerText = "BİTTİ";
@@ -619,6 +630,21 @@
             save();
             switchKasa(globalState.activeIndex);
         }
+    }
+
+    // Tüm kasaları sıfırlayan yeni fonksiyon
+    function resetAllKasas() {
+        if(!confirm("TÜM kasalar sıfırlanacak. Emin misiniz?")) return;
+        globalState = {
+            activeIndex: 0,
+            portfolios: [
+                { history: [], savedInputs: null },
+                { history: [], savedInputs: null },
+                { history: [], savedInputs: null }
+            ]
+        };
+        save();
+        switchKasa(0);
     }
 </script>
 
