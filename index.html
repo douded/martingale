@@ -207,8 +207,8 @@
                 <span class="stat-label">Ort. Oran</span>
             </div>
             <div class="stat-box">
-                <span class="stat-val" id="dispProjected" style="color: #f1c40f;">0 TL</span>
                 <span class="stat-label">Tahmini</span>
+                <span class="stat-val" id="dispProjected" style="color: #f1c40f; font-size:0.7em; line-height:1.3;">0 TL</span>
             </div>
         </div>
     </div>
@@ -408,7 +408,7 @@
         const target =
             parseInt(document.getElementById("targetWins").value) || 0;
 
-        // Küçük performans dokunuşu: temel state değişmediyse tekrar hesaplama
+        // Küçük performans dokunuşu
         const sig = JSON.stringify({
             b: balance,
             o: odds,
@@ -463,7 +463,6 @@
             }
         }
 
-        // Edge-case: oran <= 1 ise plan ve tahmin anlamsız → kullanıcıya uyarı
         const planBody = document.getElementById("planBody");
         if (!odds || odds <= 1) {
             planBody.innerHTML = "";
@@ -471,7 +470,6 @@
             document.getElementById("planStepRef").innerText = "-";
             document.getElementById("dispProjected").innerText =
                 "Oran 1'den büyük olmalı";
-            // Yine de özet & geçmiş çizilsin
             calculateSummary(balance);
             const stepIndicator = document.getElementById("stepIndicator");
             stepIndicator.innerText = "ORAN HATALI";
@@ -483,13 +481,13 @@
         // Plan tablosu
         calculateAndRenderPlan(cycleStartBalance, odds, steps, currentStep);
 
-        // Özet (başlangıç, son kasa, net kâr, büyüme)
+        // Özet
         calculateSummary(balance);
 
-        // Tahmini kasa (istatistiksel, birleşik kazanma mantığı)
-        updateProjection(balance, odds, steps, target);
+        // Tahmini kasa (cycle base üzerinden, kayıpları tahminde dikkate almadan)
+        updateProjection(cycleStartBalance, odds, steps, target);
 
-        // Inputları bu kasaya kaydet
+        // Inputları kaydet
         app.savedInputs = { balance, odds, steps, target };
         save();
 
@@ -792,12 +790,11 @@
 
     // --- DAHA GERÇEKÇİ İSTATİSTİKSEL TAHMİN (dispProjected) ---
     // Mantık:
-    // - Gelecekte sadece "kazanan" kuponlar üzerinden tahmin.
-    // - Her win sonrası kasa adımına göre çarpılıyor → birleşik faiz gibi.
-    // - Oran: kazanan kuponların ortalama oranı (yoksa planOdds).
-    // - Kazanılan adım dağılımı (1.,2.,3.,4. adım) geçmişten öğreniliyor.
-    // - B=1 ile normalize plan üzerinden Min / Ort / Max büyüme faktörleri çıkarılıyor.
-    function updateProjection(currentBalance, planOdds, totalSteps, targetWins) {
+    // - Tahmin sadece KAZANAN kuponlar üzerinden.
+    // - Base: son kazançtan sonraki "cycleStartBalance".
+    // - Kayıp kuponlar tahminde dikkate alınmaz, çünkü o döngüde nasıl olsa bir yerde kazanıp kara geçeceğin varsayılıyor.
+    // - Her win sonrası kasa F faktörüyle çarpılıyor, F plan + avgOdds'tan geliyor.
+    function updateProjection(cycleBaseBalance, planOdds, totalSteps, targetWins) {
         const projectedEl = document.getElementById("dispProjected");
 
         if (!app || !app.history) {
@@ -818,7 +815,7 @@
             return;
         }
 
-        if (currentBalance <= 0 || !totalSteps || totalSteps <= 0) {
+        if (cycleBaseBalance <= 0 || !totalSteps || totalSteps <= 0) {
             projectedEl.innerText = "-";
             return;
         }
@@ -840,7 +837,7 @@
             return;
         }
 
-        // Kazanılan adımların dağılımı (1.,2.,3.,4. adım)
+        // Kazanılan adımların dağılımı
         let stepCounts = new Array(totalSteps).fill(0);
         winsOnly.forEach((h) => {
             if (typeof h.step === "number" && h.step >= 1 && h.step <= totalSteps) {
@@ -853,18 +850,17 @@
         if (totalWinsForProb > 0) {
             stepProbs = stepCounts.map((c) => c / totalWinsForProb);
         } else {
-            // Hiç win yoksa, her adımı eşit olasılıklı kabul et
+            // Hiç win yoksa, her adımı eşit olasılıkla kabul et
             stepProbs = new Array(totalSteps).fill(1 / totalSteps);
         }
 
-        // B=1 ile normalize plan: adım başına kazanç oranlarını çıkar
+        // B=1 normalize plan ile tek win başına kâr oranını bul
         const normalizedPlan = buildPlanForSimulation(1, avgOdds, totalSteps);
         if (!normalizedPlan) {
             projectedEl.innerText = "-";
             return;
         }
 
-        // Her adımda kazanırsak B=1 için net kâr ve büyüme faktörü (1+profit_k)
         let profitsPerStep = [];
         for (let k = 0; k < totalSteps; k++) {
             let lostBefore = 0;
@@ -878,7 +874,6 @@
 
         const factors = profitsPerStep.map((p) => 1 + p);
 
-        // Ortalama büyüme faktörü (bir kazanılan kupon başına)
         const expectedFactor = factors.reduce(
             (sum, f, i) => sum + f * stepProbs[i],
             0
@@ -888,7 +883,7 @@
 
         const safePow = (factor) => {
             if (!isFinite(factor) || factor <= 0) return 0;
-            const val = currentBalance * Math.pow(factor, remainingWins);
+            const val = cycleBaseBalance * Math.pow(factor, remainingWins);
             if (!isFinite(val) || val < 0) return 0;
             return val;
         };
