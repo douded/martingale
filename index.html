@@ -280,114 +280,138 @@
     };
     let app = null;
 
-    // --- BAŞLANGIÇ ---
-    window.onload = function() {
+// --- BAŞLANGIÇ ---
+window.onload = function() {
+    try {
         const savedData = localStorage.getItem('kasaV14_fixedMath'); 
-        if(savedData) {
-            globalState = JSON.parse(savedData);
-            if(!globalState.portfolios) globalState = { activeIndex:0, portfolios:[{history:[]},{history:[]},{history:[]}] };
-        }
-        switchKasa(globalState.activeIndex);
-    };
-
-    function switchKasa(index) {
-        document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-            if(i === index) btn.classList.add('active');
-            else btn.classList.remove('active');
-        });
-
-        globalState.activeIndex = index;
-        app = globalState.portfolios[index]; 
-        document.getElementById('settingsTitle').innerText = `Ayarlar (Kasa ${index + 1})`;
-
-        if(app.savedInputs) {
-            document.getElementById('currentBalance').value = app.savedInputs.balance;
-            document.getElementById('planOdds').value = app.savedInputs.odds;
-            document.getElementById('totalSteps').value = app.savedInputs.steps;
-            document.getElementById('targetWins').value = app.savedInputs.target;
-        } else {
-            document.getElementById('currentBalance').value = 5000;
-            document.getElementById('planOdds').value = 2.00;
-            document.getElementById('totalSteps').value = 4;
-            document.getElementById('targetWins').value = 10;
-        }
-        updateData();
-    }
-
-    // --- ANA GÜNCELLEME ---
-    function updateData() {
-        if(!app) return;
-        const balance = parseFloat(document.getElementById('currentBalance').value) || 0;
-        const odds = parseFloat(document.getElementById('planOdds').value) || 2.0;
-        const steps = parseInt(document.getElementById('totalSteps').value) || 4;
-        const target = parseInt(document.getElementById('targetWins').value) || 10;
-
-        const finishedBets = app.history.filter(h => h.status !== 'pending');
-        const wins = finishedBets.filter(h => h.status === 'win').length;
-        const losses = finishedBets.filter(h => h.status === 'loss').length;
-        const totalWinOdds = finishedBets.filter(h => h.status === 'win').reduce((sum, h) => sum + h.odds, 0);
-        const avgOdds = wins > 0 ? (totalWinOdds / wins) : 0;
-
-        document.getElementById('dispRemaining').innerText = Math.max(0, target - wins);
-        document.getElementById('dispWon').innerText = wins;
-        document.getElementById('dispLost').innerText = losses;
-        document.getElementById('dispAvgOdds').innerText = fmtNum(avgOdds);
-
-        // Adım Hesapla
-        const currentStep = calculateCurrentStep(app.history, steps);
-        
-        // --- DÜZELTİLEN PLAN MANTIĞI ---
-        // Plan Döngü boyunca sabit kalmalı. "Kazandı" görene kadar geriye git ve parayı topla.
-        // Bu "Sanal Başlangıç Bakiyesi" (CycleBase) olur.
-        
-        let cycleStartBalance = balance;
-        // Geçmiş en yeni -> en eski sıralı.
-        for(let h of app.history) {
-            // Eğer "Kazandı" görürsek, ondan öncesi eski döngüdür, dur.
-            if(h.status === 'win') break;
-            
-            // Eğer "Bekliyor" veya "Kaybetti" ise, bu para döngü başında kasadaydı, geri ekle.
-            cycleStartBalance += h.amount;
-        }
-
-        calculateAndRenderPlan(cycleStartBalance, odds, steps, currentStep);
-        calculateSummary(balance); 
-
-        app.savedInputs = { balance, odds, steps, target };
-        save();
-        
-        document.getElementById('planBaseRef').innerText = fmtMoney(cycleStartBalance);
-        document.getElementById('planStepRef').innerText = steps;
-        
-        document.getElementById('stepIndicator').innerText = `ADIM ${currentStep} / ${steps}`;
-        if(currentStep > steps) {
-            document.getElementById('stepIndicator').innerText = "RİSKLİ BÖLGE";
-            document.getElementById('stepIndicator').style.color = "var(--red)";
-        } else {
-            document.getElementById('stepIndicator').style.color = "var(--blue)";
-        }
-
-        renderHistory();
-    }
-
-    // --- ADIM HESAPLAMA ---
-    function calculateCurrentStep(history, maxSteps) {
-        let step = 1;
-        const finished = history.filter(h => h.status !== 'pending');
-        if (finished.length > 0) {
-            if (finished[0].status === 'win') {
-                step = 1;
-            } else {
-                let lossCount = 0;
-                for(let h of finished) {
-                    if(h.status === 'loss') lossCount++;
-                    else break;
-                }
-                step = lossCount + 1;
+        if (savedData) {
+            const parsed = JSON.parse(savedData);
+            if (parsed && Array.isArray(parsed.portfolios)) {
+                globalState = parsed;
             }
         }
-        return step;
+    } catch (e) {
+        console.warn("Kayıtlı veri okunamadı, sıfırdan başlatılıyor.", e);
+        globalState = {
+            activeIndex: 0,
+            portfolios: [
+                { history: [], savedInputs: null },
+                { history: [], savedInputs: null },
+                { history: [], savedInputs: null }
+            ]
+        };
     }
+
+    // Güvenlik: activeIndex yoksa 0
+    if (typeof globalState.activeIndex !== 'number') {
+        globalState.activeIndex = 0;
+    }
+
+    switchKasa(globalState.activeIndex);
+};
+
+// --- ANA GÜNCELLEME (TEMİZLENMİŞ) ---
+function updateData() {
+    if (!app) return;
+
+    const balance = parseFloat(document.getElementById('currentBalance').value) || 0;
+    const odds = parseFloat(document.getElementById('planOdds').value) || 2.0;
+    const steps = parseInt(document.getElementById('totalSteps').value) || 4;
+    const target = parseInt(document.getElementById('targetWins').value) || 10;
+
+    // Bitmiş kuponların istatistikleri
+    const finishedBets = app.history.filter(h => h.status !== 'pending');
+    const wins = finishedBets.filter(h => h.status === 'win').length;
+    const losses = finishedBets.filter(h => h.status === 'loss').length;
+    const totalWinOdds = finishedBets
+        .filter(h => h.status === 'win')
+        .reduce((sum, h) => sum + h.odds, 0);
+    const avgOdds = wins > 0 ? (totalWinOdds / wins) : 0;
+
+    // Dashboard (Kalan / Tutturulan / Kaybedilen / Ort. Oran)
+    const remainingWins = Math.max(0, target - wins);
+    document.getElementById('dispRemaining').innerText = remainingWins;
+    document.getElementById('dispWon').innerText = wins;
+    document.getElementById('dispLost').innerText = losses;
+    document.getElementById('dispAvgOdds').innerText = fmtNum(avgOdds);
+
+    // Geçerli adım
+    const currentStep = calculateCurrentStep(app.history, steps);
+
+    // --- DÖNGÜ BAŞLANGIÇ BAKİYESİ (Cycle Base) ---
+    // Amaç: "Bu döngüye, ilk kayıptan veya pending'den önce kasada kaç para vardı?"
+    let cycleStartBalance = balance;
+
+    // En yeni -> en eski, ilk "win" görünce dur
+    for (let h of app.history) {
+        if (h.status === 'win') break;
+        // pending veya loss ise, bu tutar döngü başında kasadaydı → geri ekle
+        if (h.status === 'pending' || h.status === 'loss') {
+            cycleStartBalance += h.amount;
+        }
+    }
+
+    // Plan hesapla & tabloyu çiz
+    calculateAndRenderPlan(cycleStartBalance, odds, steps, currentStep);
+
+    // Özet (başlangıç, son, net kâr, büyüme)
+    calculateSummary(balance);
+
+    // Daha gerçekçi istatistiksel tahmin
+    updateProjection(balance, odds, target);
+
+    // Input değerlerini bu kasaya kaydet
+    app.savedInputs = { balance, odds, steps, target };
+    save();
+
+    // Referans bilgileri
+    document.getElementById('planBaseRef').innerText = fmtMoney(cycleStartBalance);
+    document.getElementById('planStepRef').innerText = steps;
+
+    // Adım göstergesi
+    const stepIndicator = document.getElementById('stepIndicator');
+    if (currentStep <= steps) {
+        stepIndicator.innerText = `ADIM ${currentStep} / ${steps}`;
+        stepIndicator.style.color = "var(--blue)";
+    } else {
+        stepIndicator.innerText = "RİSKLİ BÖLGE";
+        stepIndicator.style.color = "var(--red)";
+    }
+
+    // Geçmiş tabloyu yenile
+    renderHistory();
+}
+
+   // --- ADIM HESAPLAMA (DÜZELTİLMİŞ) ---
+function calculateCurrentStep(history, maxSteps) {
+    // Hiç bitmiş kupon yoksa her zaman 1. adımdayız
+    const finished = history.filter(h => h.status !== 'pending');
+    if (finished.length === 0) return 1;
+
+    // finished: en yeni -> en eski (unshift kullandığın için)
+    const lastFinished = finished[0];
+
+    // En son biten kupon kazandıysa döngü resetlenir
+    if (lastFinished.status === 'win') {
+        return 1;
+    }
+
+    // En yeni kayıpları üst üste say, ilk win'de kır
+    let lossCount = 0;
+    for (const h of finished) {
+        if (h.status === 'loss') lossCount++;
+        else break;
+    }
+
+    let step = lossCount + 1;
+
+    // step > maxSteps ise "riskli bölge" say, ama hesap tarafında maxSteps+1'e kilitle
+    if (typeof maxSteps === 'number' && maxSteps > 0) {
+        step = Math.min(step, maxSteps + 1);
+    }
+
+    return step;
+}
 
     // --- KUPON İŞLEMLERİ (Kayıt, Düzeltme, Silme) ---
     function saveCoupon() {
@@ -632,6 +656,71 @@
         }
     }
 
+    // --- DAHA GERÇEKÇİ İSTATİSTİKSEL TAHMİN (dispProjected) ---
+function updateProjection(currentBalance, planOdds, targetWins) {
+    const projectedEl = document.getElementById('dispProjected');
+
+    if (!app || !app.history) {
+        projectedEl.innerText = "-";
+        return;
+    }
+
+    const history = app.history;
+    const finished = history.filter(h => h.status !== 'pending');
+    const wins = finished.filter(h => h.status === 'win').length;
+    const losses = finished.filter(h => h.status === 'loss').length;
+    const totalBets = wins + losses;
+
+    const remainingWins = Math.max(0, targetWins - wins);
+
+    // Hedef zaten tamamlanmışsa
+    if (remainingWins === 0) {
+        projectedEl.innerText = "BİTTİ";
+        return;
+    }
+
+    // Veri çok azsa projeksiyon yapma (min 5 biten kupon şartı)
+    if (totalBets < 5) {
+        projectedEl.innerText = "-";
+        return;
+    }
+
+    const pHat = wins / totalBets; // Tarihsel isabet oranı
+
+    // Hiç tutturamamışsa ya da oran anlamsızsa projeksiyon yapma
+    if (!isFinite(pHat) || pHat <= 0) {
+        projectedEl.innerText = "-";
+        return;
+    }
+
+    // Kazanan kuponların ortalama oranı
+    const totalWinOdds = finished
+        .filter(h => h.status === 'win')
+        .reduce((sum, h) => sum + h.odds, 0);
+
+    const avgOdds = wins > 0 ? (totalWinOdds / wins) : (planOdds > 1 ? planOdds : 2.0);
+
+    // Ortalama oynanan tutar
+    const totalStake = finished.reduce((sum, h) => sum + h.amount, 0);
+    const avgStake = totalStake / totalBets;
+
+    // Tek kuponun beklenen değeri (EV)
+    const evPerBet = avgStake * (pHat * (avgOdds - 1) - (1 - pHat));
+
+    // Hedef kalan win sayısı için beklenen kupon sayısı
+    const expectedBetsToGoal = remainingWins / pHat;
+
+    const projectedFinalBalance = currentBalance + evPerBet * expectedBetsToGoal;
+
+    // Çok uçuk negatif/pozitif ise biraz sınır koyabilirsin (opsiyonel)
+    if (!isFinite(projectedFinalBalance)) {
+        projectedEl.innerText = "-";
+        return;
+    }
+
+    projectedEl.innerText = fmtMoney(projectedFinalBalance);
+}
+
     // Tüm kasaları sıfırlayan yeni fonksiyon
     function resetAllKasas() {
         if(!confirm("TÜM kasalar sıfırlanacak. Emin misiniz?")) return;
@@ -650,3 +739,4 @@
 
 </body>
 </html>
+
