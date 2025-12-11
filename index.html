@@ -65,7 +65,16 @@
         .input-group input:focus { border-color: var(--blue); outline: none; }
 
         /* Dashboard */
-        .dashboard-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; background: white; border-radius: 12px; padding: 10px; margin-bottom: 15px; border: 1px solid #e5e5ea; }
+        .dashboard-stats { 
+            display: grid; 
+            grid-template-columns: repeat(6, 1fr); /* 5'ten 6'ya çıktı (İsabet Oranı eklendi) */
+            gap: 4px; 
+            background: white; 
+            border-radius: 12px; 
+            padding: 10px; 
+            margin-bottom: 15px; 
+            border: 1px solid #e5e5ea; 
+        }
         .stat-box { text-align: center; }
         .stat-val { font-size: 1.05em; font-weight: bold; display: block; color: var(--dark); letter-spacing: -0.5px; }
         .stat-label { font-size: 0.6em; color: #8e8e93; font-weight: 600; white-space: nowrap; }
@@ -153,26 +162,25 @@
                 <span id="settingsTitle">Ayarlar (Kasa 1)</span>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
                     <button class="btn-reset" onclick="hardReset()">Bu Kasayı Sıfırla</button>
-                    <!-- Tüm kasaları sıfırlayan yeni buton -->
                     <button class="btn-reset" onclick="resetAllKasas()">Tüm Kasaları Sıfırla</button>
                 </div>
             </div>
             <div class="settings-grid">
                 <div class="input-group">
                     <label>Kasa (TL)</label>
-                    <input type="number" id="currentBalance" inputmode="decimal" onchange="updateData()" onkeyup="updateData()">
+                    <input type="number" id="currentBalance" inputmode="decimal" onchange="updateData()" onkeyup="scheduleUpdate()">
                 </div>
                 <div class="input-group">
                     <label>Plan Oranı</label>
-                    <input type="number" id="planOdds" value="2.00" step="0.01" inputmode="decimal" onchange="updateData()" onkeyup="updateData()">
+                    <input type="number" id="planOdds" value="2.00" step="0.01" inputmode="decimal" onchange="updateData()" onkeyup="scheduleUpdate()">
                 </div>
                 <div class="input-group">
                     <label>Tur (Adım)</label>
-                    <input type="number" id="totalSteps" value="4" inputmode="numeric" onchange="updateData()" onkeyup="updateData()">
+                    <input type="number" id="totalSteps" value="4" inputmode="numeric" onchange="updateData()" onkeyup="scheduleUpdate()">
                 </div>
                 <div class="input-group">
-                    <label>Hedef</label>
-                    <input type="number" id="targetWins" value="10" inputmode="numeric" onchange="updateData()" onkeyup="updateData()">
+                    <label>Hedef Kupon</label>
+                    <input type="number" id="targetWins" value="10" inputmode="numeric" onchange="updateData()" onkeyup="scheduleUpdate()">
                 </div>
             </div>
         </div>
@@ -180,7 +188,7 @@
         <div class="dashboard-stats">
             <div class="stat-box">
                 <span class="stat-val" id="dispRemaining">0</span>
-                <span class="stat-label">Kalan</span>
+                <span class="stat-label">Kalan Kupon</span>
             </div>
             <div class="stat-box">
                 <span class="stat-val" id="dispWon" style="color: var(--green);">0</span>
@@ -192,11 +200,15 @@
             </div>
             <div class="stat-box">
                 <span class="stat-val" id="dispAvgOdds">0,00</span>
-                <span class="stat-label">Ort. Oran</span>
+                <span class="stat-label">Ort. Kazanan Oran</span>
             </div>
             <div class="stat-box">
-                <span class="stat-val" id="dispProjected" style="color: #f1c40f;">0 TL</span>
-                <span class="stat-label">Tahmini</span>
+                <span class="stat-val" id="dispHitRate">-%</span>
+                <span class="stat-label">İsabet Oranı</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-val" id="dispProjected" style="color: #f1c40f;">-</span>
+                <span class="stat-label">Tahmini (Min / Ort / Max)</span>
             </div>
         </div>
     </div>
@@ -289,6 +301,13 @@
     };
     let app = null;
 
+    // --- DEBOUNCE (2.3) ---
+    let updateTimeout = null;
+    function scheduleUpdate() {
+        clearTimeout(updateTimeout);
+        updateTimeout = setTimeout(updateData, 120);
+    }
+
     // --- BAŞLANGIÇ (localStorage güvenli okuma) ---
     window.onload = function () {
         try {
@@ -379,6 +398,30 @@
         return step;
     }
 
+    // --- PLAN OLUŞTURMA HELPER (ortak) ---
+    function buildPlan(cycleBalance, odds, totalSteps) {
+        if (!cycleBalance || cycleBalance <= 0) return null;
+        if (!totalSteps || totalSteps <= 0) return null;
+        if (!odds || odds <= 1) return null;
+
+        let weights = [];
+        let currentWeightSum = 0;
+        const growthFactor = odds / (odds - 1);
+
+        weights.push(1);
+        currentWeightSum += 1;
+
+        for (let i = 1; i < totalSteps; i++) {
+            const nextWeight = weights[i - 1] * growthFactor;
+            weights.push(nextWeight);
+            currentWeightSum += nextWeight;
+        }
+
+        const unitValue = cycleBalance / currentWeightSum;
+        const planAmounts = weights.map((w) => w * unitValue);
+        return planAmounts;
+    }
+
     // --- ANA GÜNCELLEME ---
     function updateData() {
         if (!app) return;
@@ -392,9 +435,8 @@
         const target =
             parseInt(document.getElementById("targetWins").value) || 10;
 
-        const finishedBets = app.history.filter(
-            (h) => h.status !== "pending"
-        );
+        const history = app.history || [];
+        const finishedBets = history.filter((h) => h.status !== "pending");
         const wins = finishedBets.filter((h) => h.status === "win").length;
         const losses = finishedBets.filter((h) => h.status === "loss").length;
         const totalWinOdds = finishedBets
@@ -402,17 +444,60 @@
             .reduce((sum, h) => sum + h.odds, 0);
         const avgOdds = wins > 0 ? totalWinOdds / wins : 0;
 
-        const remainingWins = Math.max(0, target - wins);
-        document.getElementById("dispRemaining").innerText = remainingWins;
+        // Toplam kupon sayısı (bitmiş + bekleyen)
+        const totalCoupons = history.length;
+        const remainingCoupons = Math.max(0, target - totalCoupons);
+
+        // Dashboard (Kalan Kupon / Tutturulan / Kaybedilen / Ort. Oran / İsabet)
+        document.getElementById("dispRemaining").innerText = remainingCoupons;
         document.getElementById("dispWon").innerText = wins;
         document.getElementById("dispLost").innerText = losses;
         document.getElementById("dispAvgOdds").innerText = fmtNum(avgOdds);
 
-        const currentStep = calculateCurrentStep(app.history, steps);
+        const totalBets = wins + losses;
+        let hitRateText = "-%";
+        if (totalBets > 0) {
+            const pHat = (wins / totalBets) * 100;
+            hitRateText = fmtNum(pHat) + "%";
+        }
+        document.getElementById("dispHitRate").innerText = hitRateText;
+
+        const currentStep = calculateCurrentStep(history, steps);
+
+        const stepIndicator = document.getElementById("stepIndicator");
+        stepIndicator.innerText = `ADIM ${Math.min(currentStep, steps)} / ${steps}`;
+        stepIndicator.style.color =
+            currentStep <= steps ? "var(--blue)" : "var(--red)";
+
+        // --- PLAN / TAHMİN EDGE CASE (Oran <= 1 vb.) ---
+        const planBody = document.getElementById("planBody");
+        const projEl = document.getElementById("dispProjected");
+
+        const canPlan =
+            balance > 0 && steps > 0 && odds > 1;
+
+        if (!canPlan) {
+            planBody.innerHTML = `
+                <tr>
+                    <td colspan="3" style="color:#e74c3c; font-size:0.8em;">
+                        Plan oluşturmak için kasa &gt; 0 ve oran &gt; 1 olmalıdır.
+                    </td>
+                </tr>`;
+            document.getElementById("planBaseRef").innerText = "-";
+            document.getElementById("planStepRef").innerText = "-";
+            projEl.innerText = "-";
+
+            // Özet yine de hesaplansın
+            calculateSummary(balance);
+            renderHistory();
+            app.savedInputs = { balance, odds, steps, target };
+            save();
+            return;
+        }
 
         // --- DÖNGÜ BAŞLANGIÇ BAKİYESİ (Cycle Base) ---
         let cycleStartBalance = balance;
-        for (let h of app.history) {
+        for (let h of history) {
             if (h.status === "win") break;
             if (h.status === "pending" || h.status === "loss") {
                 cycleStartBalance += h.amount;
@@ -425,8 +510,15 @@
         // Özet (başlangıç, son kasa, net kâr, büyüme)
         calculateSummary(balance);
 
-        // Tahmini kasa (istatistiksel)
-        updateProjection(balance, odds, target);
+        // Tahmini kasa (Min / Ort / Max)
+        updateProjection({
+            currentBalance: balance,
+            cycleBalance: cycleStartBalance,
+            odds,
+            steps,
+            currentStep,
+            targetCoupons: target,
+        });
 
         // Inputları bu kasaya kaydet
         app.savedInputs = { balance, odds, steps, target };
@@ -435,15 +527,6 @@
         document.getElementById("planBaseRef").innerText =
             fmtMoney(cycleStartBalance);
         document.getElementById("planStepRef").innerText = steps;
-
-        const stepIndicator = document.getElementById("stepIndicator");
-        if (currentStep <= steps) {
-            stepIndicator.innerText = `ADIM ${currentStep} / ${steps}`;
-            stepIndicator.style.color = "var(--blue)";
-        } else {
-            stepIndicator.innerText = "RİSKLİ BÖLGE";
-            stepIndicator.style.color = "var(--red)";
-        }
 
         renderHistory();
     }
@@ -460,7 +543,7 @@
         const steps =
             parseInt(document.getElementById("totalSteps").value) || 4;
 
-        const stepCalc = calculateCurrentStep(app.history, steps);
+        const stepCalc = calculateCurrentStep(app.history || [], steps);
 
         if (!amount || !odds)
             return alert("Lütfen tutar ve oran girin.");
@@ -607,32 +690,14 @@
         const tbody = document.getElementById("planBody");
         tbody.innerHTML = "";
 
-        if (!cycleBalance || cycleBalance <= 0 || !totalSteps || totalSteps <= 0)
-            return;
-
-        if (!odds || odds <= 1) return;
-
-        let weights = [];
-        let currentWeightSum = 0;
-        const growthFactor = odds / (odds - 1);
-
-        weights.push(1);
-        currentWeightSum += 1;
-
-        for (let i = 1; i < totalSteps; i++) {
-            const nextWeight = weights[i - 1] * growthFactor;
-            weights.push(nextWeight);
-            currentWeightSum += nextWeight;
-        }
-
-        const unitValue = cycleBalance / currentWeightSum;
-        const planAmounts = weights.map((w) => w * unitValue);
+        const planAmounts = buildPlan(cycleBalance, odds, totalSteps);
+        if (!planAmounts) return;
 
         let suggestedBet = 0;
 
         planAmounts.forEach((amt, index) => {
             const stepNum = index + 1;
-            const isCurrent = stepNum === currentStep;
+            const isCurrent = stepNum === Math.min(currentStep, totalSteps);
             if (isCurrent) suggestedBet = amt;
 
             const row = `
@@ -647,12 +712,16 @@
             tbody.innerHTML += row;
         });
 
-        if (currentStep <= totalSteps) {
+        const effectiveStep = Math.min(currentStep, totalSteps);
+
+        if (effectiveStep <= totalSteps) {
             const betAmountInput = document.getElementById("betAmount");
             const betOddsInput = document.getElementById("betOdds");
 
             if (document.activeElement !== betAmountInput) {
-                betAmountInput.value = Math.floor(suggestedBet);
+                betAmountInput.value = Math.floor(
+                    planAmounts[effectiveStep - 1]
+                );
             }
             if (document.activeElement !== betOddsInput) {
                 betOddsInput.value = odds;
@@ -713,8 +782,17 @@
         switchKasa(globalState.activeIndex);
     }
 
-    // --- DAHA GERÇEKÇİ İSTATİSTİKSEL TAHMİN (dispProjected) ---
-    function updateProjection(currentBalance, planOdds, targetWins) {
+    // --- TAHMİN: Min / Ort / Max (martingale adımlarına göre) ---
+    function updateProjection(params) {
+        const {
+            currentBalance,
+            cycleBalance,
+            odds,
+            steps,
+            currentStep,
+            targetCoupons,
+        } = params;
+
         const projectedEl = document.getElementById("dispProjected");
 
         if (!app || !app.history) {
@@ -723,60 +801,97 @@
         }
 
         const history = app.history;
+        const totalCoupons = history.length;
+        const remainingCoupons = Math.max(0, targetCoupons - totalCoupons);
+
+        if (remainingCoupons === 0) {
+            projectedEl.innerText = "BİTTİ";
+            return;
+        }
+
         const finished = history.filter((h) => h.status !== "pending");
         const wins = finished.filter((h) => h.status === "win").length;
         const losses = finished.filter((h) => h.status === "loss").length;
         const totalBets = wins + losses;
 
-        const remainingWins = Math.max(0, targetWins - wins);
-
-        if (remainingWins === 0) {
-            projectedEl.innerText = "BİTTİ";
-            return;
-        }
-
-        if (totalBets < 5) {
-            projectedEl.innerText = "-";
-            return;
-        }
-
-        const pHat = wins / totalBets;
-        if (!isFinite(pHat) || pHat <= 0) {
-            projectedEl.innerText = "-";
-            return;
-        }
-
+        // Ortalama kazanan oranı (yoksa plan oranı)
         const totalWinOdds = finished
             .filter((h) => h.status === "win")
             .reduce((sum, h) => sum + h.odds, 0);
-
         const avgOdds =
             wins > 0
                 ? totalWinOdds / wins
-                : planOdds > 1
-                ? planOdds
+                : odds > 1
+                ? odds
                 : 2.0;
 
-        const totalStake = finished.reduce(
-            (sum, h) => sum + h.amount,
-            0
-        );
-        const avgStake = totalStake / totalBets;
+        // Hit oranı p
+        let pWin;
+        if (totalBets === 0) {
+            pWin = 0.5; // veri yoksa nötr varsayım
+        } else {
+            pWin = wins / totalBets;
+        }
 
-        const evPerBet =
-            avgStake * (pHat * (avgOdds - 1) - (1 - pHat));
-
-        const expectedBetsToGoal = remainingWins / pHat;
-
-        const projectedFinalBalance =
-            currentBalance + evPerBet * expectedBetsToGoal;
-
-        if (!isFinite(projectedFinalBalance)) {
+        // Plan tutarları
+        const planAmounts = buildPlan(cycleBalance, odds, steps);
+        if (!planAmounts) {
             projectedEl.innerText = "-";
             return;
         }
 
-        projectedEl.innerText = fmtMoney(projectedFinalBalance);
+        const stakeForStep = (s) =>
+            planAmounts[Math.min(Math.max(s, 1), steps) - 1];
+
+        // --- Min: tüm kalan kuponlar kaybeder ---
+        let minProfit = 0;
+        let sMin = Math.min(currentStep, steps);
+        for (let i = 0; i < remainingCoupons; i++) {
+            const stake = stakeForStep(sMin);
+            minProfit -= stake;
+            sMin = Math.min(sMin + 1, steps);
+        }
+        const minBalance = currentBalance + minProfit;
+
+        // --- Max: tüm kalan kuponlar kazanır (her seferinde 1. adım) ---
+        let maxProfit = 0;
+        const stakeStep1 = stakeForStep(1);
+        for (let i = 0; i < remainingCoupons; i++) {
+            maxProfit += stakeStep1 * (avgOdds - 1);
+        }
+        const maxBalance = currentBalance + maxProfit;
+
+        // --- Ort: tüm ihtimallerin beklenen değeri (Markov DP) ---
+        let avgProfit;
+        if (pWin <= 0) {
+            // Hiç kazanamamışsan, beklenen senaryo minimumla aynı
+            avgProfit = minProfit;
+        } else if (pWin >= 1) {
+            // Hep kazanıyorsan, beklenen senaryo maksimumla aynı
+            avgProfit = maxProfit;
+        } else {
+            // f[k][s] = k kupon kala, adım s iken beklenen toplam kâr
+            let fPrev = new Array(steps + 1).fill(0); // index 1..steps
+            for (let k = 1; k <= remainingCoupons; k++) {
+                let fCurr = new Array(steps + 1).fill(0);
+                for (let s = 1; s <= steps; s++) {
+                    const stake = stakeForStep(s);
+                    const winProfit = stake * (avgOdds - 1) + fPrev[1];
+                    const nextStepOnLoss = Math.min(s + 1, steps);
+                    const lossProfit = -stake + fPrev[nextStepOnLoss];
+                    fCurr[s] = pWin * winProfit + (1 - pWin) * lossProfit;
+                }
+                fPrev = fCurr;
+            }
+            const startStep = Math.min(currentStep, steps);
+            avgProfit = fPrev[startStep];
+        }
+        const avgBalance = currentBalance + avgProfit;
+
+        projectedEl.innerHTML =
+            `Min: ${fmtMoney(minBalance)}<br>` +
+            `Ort: ${fmtMoney(avgBalance)}<br>` +
+            `Max: ${fmtMoney(maxBalance)}`;
     }
 
     // --- TÜM KASALARI SIFIRLA ---
