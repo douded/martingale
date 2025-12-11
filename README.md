@@ -1,280 +1,165 @@
-🧠 Genel Mantık
+# Kasa Takip (Martingale Plan Takip Aracı)
 
-Uygulama, martingale türevi adımlı oyun mantığını takip eder:
+Bu proje, bahis / kupon serilerinde kullanılan **çok adımlı (martingale benzeri) kasa yönetim planını** takip etmek, simüle etmek ve istatistiksel olarak projekte etmek için geliştirilmiş bir web uygulamasıdır.
 
-Belirli bir kasa ve plan oranı ile başlarsın.
-
-Her kayıptan sonra adım (tur) ilerler.
-
-Canlı Plan, ilgili döngüde her turda yatırılması gereken tutarı ve olasık kazancı hesaplar.
-
-Kuponları kaydeder, kazanma/kaybetme durumuna göre kasayı otomatik günceller.
-
-Her şey tek ekranda üç ana blokta toplanmıştır:
-
-Özet ve Kasa Seçimi
-
-Ayarlar + Dashboard + Aktif Kupon Alanı + Geçmiş
-
-Canlı Plan Tablosu
-
-🧩 Ekran Yapısı ve Bileşenler
-1️⃣ Özet Kartı (Üstteki Mavi Kart)
-
-Burada tüm döngü için kısa bir finansal özet görürsün:
-
-Başlangıç → Kasanın tahmini başlangıç seviyesi (realize PnL’e göre hesaplanır).
-
-Son Kasa → Şu anki güncel kasa tutarın.
-
-Net Kâr → Toplam kazanç / kayıp (TL bazında).
-
-Büyüme → Başlangıca göre yüzde değişim (%).
-
-Net Kâr ve Büyüme alanları pozitif/negatif duruma göre yeşil/kırmızı renkle gösterilir.
-
-2️⃣ Kasa Seçimi (KASA 1 / KASA 2 / KASA 3)
-
-Hemen özet kartının altında 3 adet sekme vardır:
-
-KASA 1
-
-KASA 2
-
-KASA 3
-
-Her bir kasa:
-
-Kendi ayarlarına (kasa, oran, adım sayısı, hedef),
-
-Kendi kupon geçmişine,
-
-Kendi canlı planına sahiptir.
-
-Sekmeler arasında geçiş yaptığında:
-
-Başlıktaki yazı Ayarlar (Kasa X) olarak değişir.
-
-Girilen veriler o kasaya özel olduğundan kaybolmaz (localStorage’tan çekilir).
-
-3️⃣ Ayarlar Bölümü
-
-Bu bölümde mevcut kasa ve plan parametrelerini belirlersin.
-
-Alanlar:
-
-Kasa (TL)
-Mevcut kasanı yazarsın. Kupon oynadıkça buradan düşer, kazandıkça buraya eklenir.
-
-Plan Oranı
-Martingale planında kullanacağın referans oran (ör. 2.00).
-Canlı Plan buna göre adım başı tutar hesaplar.
-
-Tur (Adım)
-Döngüde kaç adım kullanacağını belirler (ör. 4 adım).
-
-Hedef
-Bu kasa için toplam kaç tutturulan kupon hedeflediğini gösterir (ör. 10).
-
-🎛 Sıfırlama Butonları
-
-Bu Kasayı Sıfırla
-Sadece aktif kasanın:
-
-Kupon geçmişini,
-
-Ayarlarını
-sıfırlar.
-
-Tüm Kasaları Sıfırla (varsa)
-3 kasayı da komple siler ve ilk hale döner.
-Bu işlem geri alınamaz, tüm localStorage verin temizlenir.
-
-4️⃣ Dashboard İstatistikleri
-
-Ayarlar kartının altında “mini dashboard” bulunur:
-
-Kalan → Hedeflenen toplam tutturma sayısından, şu ana kadar kazanılanların çıkarılmış hali.
-
-Tutturulan → Kazanmış kupon adedi.
-
-Kaybedilen → Kaybetmiş kupon adedi.
-
-Ort. Oran → Kazanan kuponların ortalama oranı.
-
-Tahmini → Ortalama oran ve plana göre, hedefe ulaşıldığında öngörülen kasa büyüklüğü.
-
-“Tahmini” değer, istatistiksel bir projeksiyondur; sadece simüle edilmiş hesaptır.
-
-5️⃣ Aktif Kupon Alanı
-
-Bu alan, o an oynadığın / oynayacağın kuponu yönetmek içindir.
-
-Gösterilen başlık:
-
-ADIM X / N formatında (ör. ADIM 2 / 4)
-
-Eğer adım, planlanan toplam adımı aşarsa uyarı mesajı: RİSKLİ BÖLGE
-
-Alanlar:
-
-Oynanan Tutar
-
-Kupon Oranı
-
-Buton:
-
-Kuponu Kaydet (Bekliyor)
-
-Tutarı kasadan düşer,
-
-Kuponu “bekliyor” statüsüyle geçmişe ekler,
-
-Canlı plan ve dashboard güncellenir.
-
-NOT: Canlı Plan, aktif adım için otomatik önerilen tutarı Oynanan Tutar alanına doldurur.
-Sen istersen manuel değiştirebilirsin.
-
-6️⃣ Kupon Geçmişi
-
-“Aktif Kupon” alanının altındaki kartta tablo şeklinde gösterilir.
-
-Kolonlar:
-
-Adım → O kuponun ait olduğu plan adımı.
-
-Tutar → Kupon için yatırılan tutar.
-
-Oran → Kupon oranı.
-
-Olası K. → Kupon kazanırsa elde edilecek brüt kazanç.
-
-Durum/İşlem → Kupon sonucu ve butonlar.
-
-Sil → Kupon kaydını tamamen silme butonu (🗑).
-
-Durum Butonları
-
-Her satırda:
-
-Bekliyor durumunda:
-
-✔ → Kazandı olarak işaretle.
-
-✖ → Kaybetti olarak işaretle.
-
-Kazandı/Kaybetti durumunda:
-
-↺ → Sonucu geri al, tekrar “Bekliyor” yap.
-
-Silerken (🗑):
-
-Kasa otomatik düzeltilir:
-
-Bekleyen / kaybeden kuponlar → yatırılan tutar kasaya iade edilir.
-
-Kazanan kupon → önce kazanç düşülür, ardından yatırılan tutar eklenir (yani hiç oynanmamış gibi).
-
-7️⃣ Canlı Plan
-
-Sağ tarafta yer alan “Canlı Plan” kartı, mevcut döngü için teoriye uygun adım adım yatırım planını gösterir.
-
-Plan Bazı → Döngü başındaki varsayılan kasa (Cycle Base).
-Son kazançtan sonraki kasa + o kazanç noktasına kadar olan kayıp/bekleyen bahislerin geri eklenmiş hali.
-
-Hesaplanan Döngü → Planlanan toplam adım sayısı (Tur).
-
-Tablo kolonları:
-
-Tur → 1, 2, 3, ... N
-
-Yatırılacak → O turda yatırılması önerilen tutar (plan mantığına göre).
-
-Olası Kazanç → Kupon kazanırsa kasaya girecek brüt para.
-
-Aktif adım (current step):
-
-Satır, açık mavi (current-row) arka plan ile işaretlenir.
-
-Satırın başında küçük bir “👉” ikonu görünür.
-
-Bu tur için önerilen tutar, Oynanan Tutar alanına otomatik yazılır.
-
-💾 Veri Saklama (localStorage)
-
-Uygulama tüm veriyi, tarayıcı üzerinde localStorage ile saklar:
-
-Ana anahtar: kasaV14_fixedMath
-
-Saklananlar:
-
-3 kasa için:
-
-Kupon geçmişleri (history),
-
-Ayarlar (savedInputs: kasa, oran, adım, hedef),
-
-Aktif kasa indeksi (activeIndex).
-
-Önemli noktalar:
-
-Başka bir cihazdan veya başka bir tarayıcıdan açarsan boş başlar.
-
-Aynı cihazda, aynı tarayıcıda açtığında kaldığın yerden devam eder.
-
-“Bu Kasayı Sıfırla” veya “Tüm Kasaları Sıfırla” dediğinde ilgili veriler localStorage’tan silinir.
-
-📱 Mobil Kullanım ve PWA Hissi
-
-Sayfa mobil dostu build edilmiştir.
-
-Uygulama, mobil tarayıcıya eklendiğinde (Add to Home Screen):
-
-Tam ekran bir uygulama gibi çalışabilir.
-
-Tema rengi üst bar ile uyumlu görünür (destekleyen tarayıcılarda).
-
-Öneri:
-
-Android / iOS’ta:
-
-Siteyi aç → Tarayıcı menüsünden “Ana Ekrana Ekle”
-
-Kısa yol üzerinden tam ekran, bağımsız bir uygulama gibi kullan.
-
-⚠️ Uyarı
-
-Bu araç, tamamen matematiksel bir simülasyon ve kasa takip aracıdır:
-
-Herhangi bir şekilde bahis tavsiyesi vermez.
-
-Gerçek para ile yapılacak oyunlar için sorumluluk kullanıcıya aittir.
-
-Martingale ve benzeri sistemler, uzun vadede ciddi risk içerir ve kasanın tükenmesine sebep olabilir.
-
-
-Lütfen:
-
-Gerçek para ile kullanmadan önce mantığını iyi anla,
-
-Riskini yönet,
-
-Kendi sorumluluğunda olduğunu unutma.
-
-# 📊 Kasa Takip (Fix Sürüm)
-
-Martingale mantığına göre **kasa yönetimi** ve **bahis adımı takibi** yapabileceğin, tamamen tarayıcı üzerinde çalışan bir araçtır.
-
-- ✅ Her kullanıcı için veriler **kendi tarayıcısında** saklanır (localStorage).
-- ✅ Sunucuya veri gönderilmez.
-- ✅ 3 ayrı kasa (portföy) arasında hızlı geçiş yapabilirsin.
-- ✅ Canlı plan, geçmiş kuponlar ve özet istatistikler tek ekranda.
+Tamamen **tarayıcı üzerinde**, **localStorage** kullanarak çalışır. Sunucuya veri göndermez, hesaplar cihazın içinde tutulur.
 
 ---
 
-## 🔗 Nasıl Açılır?
+## Özellikler
 
-Eğer GitHub Pages üzerinden yayındaysa (örnek):
+- 📂 **3 Ayrı Kasa (Portföy) Desteği**
+  - KASA 1 / KASA 2 / KASA 3 arasında hızlı geçiş
+  - Her kasa için ayrı:
+    - Kasa bakiyesi
+    - Plan oranı
+    - Adım sayısı (tur)
+    - Hedef kazanan kupon sayısı
+    - Kupon geçmişi ve istatistikler
 
-```text
-https://douded.github.io/martingale/
+- 📊 **Özet Kartı**
+  - Başlangıç Kasa (hesaplanan)
+  - Son Kasa (güncel)
+  - Net Kâr
+  - Büyüme Yüzdesi
+
+- 📈 **Dashboard İstatistikleri**
+  - Kalan Kazanılması Gereken Kupon Sayısı
+  - Tutturulan Kupon
+  - Kaybedilen Kupon
+  - **Hit Oranı (%)**
+  - Kazanan Kuponların Ortalama Oranı
+  - **Tahmini Son Kasa** (istatistiksel projeksiyon)
+
+- 🧮 **Canlı Plan Tablosu**
+  - Plan oranına göre **geometrik bölüşüm**
+  - Her tur için:
+    - Yatırılacak tutar
+    - Olası kazanç
+  - Aktif adım satırı vurgulu (👉 işaretli)
+
+- 🧾 **Kupon Geçmişi**
+  - Adım, tutar, oran, olası kazanç
+  - Durum:
+    - ⚪ Bekliyor
+    - ✅ KAZANDI
+    - ❌ KAYBETTİ
+  - İşlemler:
+    - Kazandı / Kaybetti işaretleme
+    - Geri al (↺)
+    - Sil (🗑) – bakiyeyi otomatik düzeltir
+
+- 💾 **Otomatik Kayıt (localStorage)**
+  - Tarayıcıyı kapatsan bile:
+    - Tüm kasalar
+    - Kupon geçmişleri
+    - Ayarlar
+  - Otomatik kaydedilir ve tekrar açıldığında yüklenir.
+
+- 📱 **Mobil Uyumlu / PWA Hazır**
+  - iOS & Android tarayıcılarda rahat kullanım
+  - `apple-mobile-web-app-capable` ve `theme-color` meta etiketleri ile PWA uyumu
+
+---
+
+## Kullanım
+
+1. **Kasa Ayarları**
+   - `Kasa (TL)`: Mevcut kasadaki para.
+   - `Plan Oranı`: Planladığın kupon oranı (örneğin 2.00).
+   - `Tur (Adım)`: Döngü uzunluğu (örneğin 4 adım).
+   - `Hedef`: Toplam kaç kazanan kupona göre plan yapıyorsun? (örneğin 100).
+
+2. **Canlı Plan**
+   - Plan oranına göre, seçtiğin adım sayısı içinde kasayı geometrik şekilde dağıtır.
+   - Örneğin:
+     - Oran: 2.00
+     - Adım: 4
+     - Kasa: 5000 TL
+   - Plan, ilk adımda daha küçük, sonlara doğru büyüyen bir risk dağılımı oluşturur.
+
+3. **Kupon Girişi**
+   - `Oynanan Tutar`: Bu kupon için yatırdığın para.
+   - `Kupon Oranı`: Kuponun gerçek oranı.
+   - `Kuponu Kaydet (Bekliyor)` butonuna tıkla.
+   - Kupon açıldığında:
+     - ⚪ Bekliyor durumunda kalır.
+     - Sonra kuponu **KAZANDI** veya **KAYBETTİ** olarak işaretleyebilirsin.
+
+4. **Sonuç İşaretleme**
+   - `✔` → Kupon kazandı:
+     - Kasa: `+ (tutar × oran)` kadar artar.
+   - `✖` → Kupon kaybetti:
+     - Kasa: zaten kayıp yazılmış olduğu için ekstra işlem yok.
+   - `↺` → Sonucu geri al:
+     - Gerekirse kazanç geri düşülür, kupon tekrar **Bekliyor** durumuna gelir.
+
+5. **Kasa Sıfırlama**
+   - `Bu Kasayı Sıfırla` → Yalnızca aktif kasayı sıfırlar.
+   - `Tüm Kasaları Sıfırla` → Tüm kasaları ve geçmişi temizler.
+
+---
+
+## Canlı Plan Mantığı (Geometrik Dağılım)
+
+Plan tablosu şu mantıkla hesaplanır:
+
+- `growthFactor = oran / (oran - 1)`
+- Ağırlıklar:
+  - 1. adım: 1
+  - 2. adım: 1 × growthFactor
+  - 3. adım: önceki × growthFactor
+  - ...
+- Toplam ağırlık = `w1 + w2 + ... + wn`
+- Her adıma yatırılacak tutar:
+  - `tutar_i = (Kasa / toplam_ağırlık) × ağırlık_i`
+
+Bu sayede, hangi adımda kazanırsan kazan:
+- Plan **aynı oransal kazancı** hedefler.
+- Martingale’nin kaba “katla, tekrar dene” mantığı yerine daha kontrollü/geometrik bir sermaye dağılımı kullanılır.
+
+---
+
+## Tahmini Son Kasa Hesabı (dispProjected)
+
+Tahmin alanında tek bir değer gösterilir:
+
+> **"Hedefteki toplam kazanan kupon sayısına ulaştığımda, tahmini kasam ne olur?"**
+
+Burada kullanılan mantık:
+
+1. **Ortalama oran (avgOdds)**  
+   - Önce **kazanan kuponların** ortalama oranı hesaplanır.
+   - Eğer henüz hiç kazanan yoksa:
+     - `avgOdds = Plan Oranı` (örneğin 2.00)
+   - `avgOdds` her yeni win’de **dinamik** olarak güncellenir, tahmin de buna göre değişir.
+
+2. **Simülasyon Baz Kasa (cycleBaseBalance)**
+   - Ekrandaki “Plan Bazı” değeri tahmin için başlangıç kabul edilir.
+   - Yani o anki döngüde, kayıplar geri eklenmiş, henüz yeni kuponu oynamadan önceki “sanal başlangıç” kullanılır.
+
+3. **Şu Andaki Adımda Kazanıyormuş Gibi Kabul**
+   - Canlı plandaki `currentStep` için:
+     - O adımda yatırılacak tutar: `stake_current`
+   - Bu kupon **hemen kazanmış gibi** hesap yapılır:
+     - `balanceAfterNextWin = cycleBaseBalance + stake_current × (avgOdds - 1)`
+
+4. **Her Win’den Sonra Büyüme Faktörü**
+   - Büyüme etkisini oransal görmek için 1 birimlik kasa ile aynı geometrik plan tekrar hesaplanır.
+   - Bu planın 1. adımında kazanıldığında elde edilen kâr oranı:
+     - `profitNorm = stake0 × (avgOdds - 1)`
+   - Her win sonrası:
+     - `growthFactorPerWin = 1 + profitNorm`
+
+5. **Kalan Kazanan Kupon Sayısı**
+   - Hedef: `targetWins`
+   - Şu ana kadar kazanılan: `wins`
+   - Kalan: `remainingWins = targetWins - wins`
+   - Bu turun kuponunu kazandığını zaten varsaydığımız için:
+     - Gelecek için **kalan win sayısı**: `remainingWins - 1` (0’dan küçükse 0 alınır)
+
+6. **Nihai Tahmin**
+   ```text
+   Tahmini Son Kasa =
+       (cycleBaseBalance + stake_current × (avgOdds - 1))
+       × (growthFactorPerWin) ^ (remainingWins - 1)
