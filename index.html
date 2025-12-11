@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- PWA / Tema rengi eklemeleri -->
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Kasa Takip">
+    <meta name="apple-mobile-web-app-title" content="Kasa Takip">
+    <title>Kasa Takip (Fix Sürüm)</title>
+    <style>
+        :root { --dark: #2c3e50; --blue: #007AFF; --green: #34C759; --red: #FF3B30; --orange: #FF9500; --bg: #F2F2F7; --active-tab: #007AFF; }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: var(--bg); 
+            margin: 0; 
+            padding: 15px; 
+            padding-top: env(safe-area-inset-top);
+            color: #333; 
+            padding-bottom: 50px; 
+        }
+        
+        /* Layout */
+        .grid-container { display: grid; grid-template-columns: 1fr 350px; gap: 15px; max-width: 1200px; margin: 0 auto; }
+        .full-width { grid-column: 1 / -1; }
+        
+        /* Kartlar */
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .card-header { font-weight: 600; font-size: 1.1em; color: var(--dark); border-bottom: 1px solid #e5e5ea; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
+        
+        /* ÖZET KARTI */
+        .summary-card {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+        .sum-item { text-align: center; flex: 1; border-right: 1px solid rgba(255,255,255,0.2); }
+        .sum-item:last-child { border-right: none; }
+        .sum-label { font-size: 0.75em; opacity: 0.8; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sum-val { font-size: 1.1em; font-weight: 700; display: block; letter-spacing: -0.5px; }
+
+        /* KASA SEÇİCİ */
+        .portfolio-tabs { display: flex; background: white; padding: 5px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .tab-btn { flex: 1; border: none; background: transparent; padding: 10px; font-size: 0.95em; font-weight: 600; color: #8e8e93; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .tab-btn.active { background: var(--active-tab); color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+        
+        /* Inputlar */
+        .settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .input-group label { display: block; font-size: 0.8em; font-weight: 600; color: #8e8e93; margin-bottom: 5px; }
+        .input-group input { 
+            width: 100%; padding: 12px; border: 1px solid #c7c7cc; border-radius: 8px; 
+            font-size: 16px; font-weight: 600; box-sizing: border-box; background: white;
+            -webkit-appearance: none;
+        }
+        .input-group input:focus { border-color: var(--blue); outline: none; }
+
+        /* Dashboard */
+        .dashboard-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; background: white; border-radius: 12px; padding: 10px; margin-bottom: 15px; border: 1px solid #e5e5ea; }
+        .stat-box { text-align: center; }
+        .stat-val { font-size: 1.05em; font-weight: bold; display: block; color: var(--dark); letter-spacing: -0.5px; }
+        .stat-label { font-size: 0.6em; color: #8e8e93; font-weight: 600; white-space: nowrap; }
+
+        /* Plan Tablosu */
+        .plan-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+        .plan-table th { text-align: left; color: #8e8e93; border-bottom: 1px solid #c6c6c8; padding: 8px 4px; font-weight: 500; }
+        .plan-table td { padding: 10px 4px; border-bottom: 1px solid #efeff4; font-variant-numeric: tabular-nums; }
+        .current-row { background-color: #e3f2fd; font-weight: 600; color: var(--blue); }
+
+        /* Aktif Bahis Alanı */
+        .bet-area { background: #fff; border: 2px solid var(--blue); padding: 20px; border-radius: 14px; text-align: center; margin-bottom: 15px; }
+        .step-title { font-size: 1.2em; font-weight: 800; color: var(--blue); margin: 0 0 10px 0; letter-spacing: -0.5px; }
+
+        /* Butonlar */
+        .btn-save { 
+            width: 100%; padding: 15px; border: none; border-radius: 10px; cursor: pointer; color: white; 
+            font-weight: 700; font-size: 1.1em; margin-top: 15px;
+            background: linear-gradient(to right, #007AFF, #0056b3);
+            box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3);
+            transition: transform 0.1s;
+        }
+        .btn-save:active { transform: scale(0.98); }
+        .btn-reset { background: #8e8e93; font-size: 0.8em; padding: 5px 10px; border-radius: 6px; color: white; border: none; cursor: pointer; }
+
+        /* Geçmiş Tablosu */
+        .history-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 0.85em; min-width: 100%; }
+        .history-table th { background: #f2f2f7; padding: 10px 4px; text-align: center; color: #8e8e93; font-weight: 600; white-space: nowrap; }
+        .history-table td { padding: 12px 4px; text-align: center; border-bottom: 1px solid #e5e5ea; vertical-align: middle; }
+        
+        .action-btn { padding: 6px 10px; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer; margin: 0 2px; font-size: 0.85em; }
+        .btn-check { background: var(--green); }
+        .btn-cross { background: var(--red); }
+        .btn-undo { background: var(--orange); }
+        .btn-del { background: #8e8e93; opacity: 0.5; }
+
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; display: inline-block; min-width: 60px; }
+        .st-pending { background: #fff3cd; color: #856404; }
+        .st-win { background: #d4edda; color: #155724; }
+        .st-loss { background: #f8d7da; color: #721c24; }
+
+        @media (max-width: 800px) { 
+            .grid-container { grid-template-columns: 1fr; } 
+            .summary-card { flex-wrap: wrap; gap: 10px; }
+            .sum-item { flex: 1 1 40%; border-right: none; }
+            .stat-val { font-size: 0.9em; } 
+            .dashboard-stats { gap: 2px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="grid-container">
+    
+    <div class="full-width">
+        <div class="summary-card">
+            <div class="sum-item">
+                <span class="sum-label">Başlangıç</span>
+                <span class="sum-val" id="sumStart">0,00 TL</span>
+            </div>
+            <div class="sum-item">
+                <span class="sum-label">Son Kasa</span>
+                <span class="sum-val" id="sumEnd">0,00 TL</span>
+            </div>
+            <div class="sum-item">
+                <span class="sum-label">Net Kâr</span>
+                <span class="sum-val" id="sumProfit">0,00 TL</span>
+            </div>
+            <div class="sum-item">
+                <span class="sum-label">Büyüme</span>
+                <span class="sum-val" id="sumPercent">%0,00</span>
+            </div>
+        </div>
+
+        <div class="portfolio-tabs">
+            <button class="tab-btn active" id="tab0" onclick="switchKasa(0)">KASA 1</button>
+            <button class="tab-btn" id="tab1" onclick="switchKasa(1)">KASA 2</button>
+            <button class="tab-btn" id="tab2" onclick="switchKasa(2)">KASA 3</button>
+        </div>
+    </div>
+
+    <div class="full-width">
+        <div class="card">
+            <div class="card-header">
+                <span id="settingsTitle">Ayarlar (Kasa 1)</span>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button class="btn-reset" onclick="hardReset()">Bu Kasayı Sıfırla</button>
+                    <!-- Tüm kasaları sıfırlayan yeni buton -->
+                    <button class="btn-reset" onclick="resetAllKasas()">Tüm Kasaları Sıfırla</button>
+                </div>
+            </div>
+            <div class="settings-grid">
+                <div class="input-group">
+                    <label>Kasa (TL)</label>
+                    <input type="number" id="currentBalance" inputmode="decimal" onchange="updateData()" onkeyup="updateData()">
+                </div>
+                <div class="input-group">
+                    <label>Plan Oranı</label>
+                    <input type="number" id="planOdds" value="2.00" step="0.01" inputmode="decimal" onchange="updateData()" onkeyup="updateData()">
+                </div>
+                <div class="input-group">
+                    <label>Tur (Adım)</label>
+                    <input type="number" id="totalSteps" value="4" inputmode="numeric" onchange="updateData()" onkeyup="updateData()">
+                </div>
+                <div class="input-group">
+                    <label>Hedef</label>
+                    <input type="number" id="targetWins" value="10" inputmode="numeric" onchange="updateData()" onkeyup="updateData()">
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="stat-box">
+                <span class="stat-val" id="dispRemaining">0</span>
+                <span class="stat-label">Kalan</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-val" id="dispWon" style="color: var(--green);">0</span>
+                <span class="stat-label">Tutturulan</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-val" id="dispLost" style="color: var(--red);">0</span>
+                <span class="stat-label">Kaybedilen</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-val" id="dispAvgOdds">0,00</span>
+                <span class="stat-label">Ort. Oran</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-val" id="dispProjected" style="color: #f1c40f;">0 TL</span>
+                <span class="stat-label">Tahmini</span>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <div class="bet-area">
+            <div class="step-title" id="stepIndicator">ADIM 1</div>
+            <p style="font-size:0.8em; color:#8e8e93; margin-top:-5px; margin-bottom:15px;">Önce kuponu oluştur, sonra aşağıdan sonucunu gir.</p>
+            
+            <div class="settings-grid">
+                <div class="input-group">
+                    <label>Oynanan Tutar</label>
+                    <input type="number" id="betAmount" inputmode="decimal">
+                </div>
+                <div class="input-group">
+                    <label>Kupon Oranı</label>
+                    <input type="number" id="betOdds" step="0.01" inputmode="decimal">
+                </div>
+            </div>
+            
+            <button class="btn-save" onclick="saveCoupon()">Kuponu Kaydet (Bekliyor)</button>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Kupon Geçmişi</div>
+            <div style="overflow-x: auto;">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Adım</th>
+                            <th>Tutar</th>
+                            <th>Oran</th>
+                            <th>Olası K.</th>
+                            <th>Durum/İşlem</th>
+                            <th>Sil</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <div class="card">
+            <div class="card-header">
+                Canlı Plan
+            </div>
+            <p style="font-size: 0.75em; color: #8e8e93; margin-top:-10px;">
+                Plan Bazı: <b><span id="planBaseRef"></span></b> <br>
+                Hesaplanan Döngü: <b><span id="planStepRef"></span> Tur</b>
+            </p>
+            <table class="plan-table">
+                <thead>
+                    <tr>
+                        <th>Tur</th>
+                        <th>Yatırılacak</th>
+                        <th>Olası Kazanç</th>
+                    </tr>
+                </thead>
+                <tbody id="planBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- YARDIMCI FORMAT FONKSİYONLARI ---
+    const fmtMoney = (num) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num) + ' TL';
+    const fmtNum = (num) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+
+    // --- VERİ YAPISI ---
+    let globalState = {
+        activeIndex: 0,
+        portfolios: [
+            { history: [], savedInputs: null },
+            { history: [], savedInputs: null },
+            { history: [], savedInputs: null }
+        ]
+    };
+    let app = null;
+
+    // --- BAŞLANGIÇ ---
+window.onload = function() {
+    try {
+        const savedData = localStorage.getItem('kasaV14_fixedMath'); 
+        if (savedData) {
+            const parsed = JSON.parse(savedData);
+            if (parsed && Array.isArray(parsed.portfolios)) {
+                globalState = parsed;
+            }
+        }
+    } catch (e) {
+        console.warn("Kayıtlı veri okunamadı, sıfırdan başlatılıyor.", e);
+        globalState = {
+            activeIndex: 0,
+            portfolios: [
+                { history: [], savedInputs: null },
+                { history: [], savedInputs: null },
+                { history: [], savedInputs: null }
+            ]
+        };
+    }
+
+    // Güvenlik: activeIndex yoksa 0
+    if (typeof globalState.activeIndex !== 'number') {
+        globalState.activeIndex = 0;
+    }
+
+    switchKasa(globalState.activeIndex);
+};
+
+    /// --- ANA GÜNCELLEME (TEMİZLENMİŞ) ---
+function updateData() {
+    if (!app) return;
+
+    const balance = parseFloat(document.getElementById('currentBalance').value) || 0;
+    const odds = parseFloat(document.getElementById('planOdds').value) || 2.0;
+    const steps = parseInt(document.getElementById('totalSteps').value) || 4;
+    const target = parseInt(document.getElementById('targetWins').value) || 10;
+
+    // Bitmiş kuponların istatistikleri
+    const finishedBets = app.history.filter(h => h.status !== 'pending');
+    const wins = finishedBets.filter(h => h.status === 'win').length;
+    const losses = finishedBets.filter(h => h.status === 'loss').length;
+    const totalWinOdds = finishedBets
+        .filter(h => h.status === 'win')
+        .reduce((sum, h) => sum + h.odds, 0);
+    const avgOdds = wins > 0 ? (totalWinOdds / wins) : 0;
+
+    // Dashboard (Kalan / Tutturulan / Kaybedilen / Ort. Oran)
+    const remainingWins = Math.max(0, target - wins);
+    document.getElementById('dispRemaining').innerText = remainingWins;
+    document.getElementById('dispWon').innerText = wins;
+    document.getElementById('dispLost').innerText = losses;
+    document.getElementById('dispAvgOdds').innerText = fmtNum(avgOdds);
+
+    // Geçerli adım
+    const currentStep = calculateCurrentStep(app.history, steps);
+
+    // --- DÖNGÜ BAŞLANGIÇ BAKİYESİ (Cycle Base) ---
+    // Amaç: "Bu döngüye, ilk kayıptan veya pending'den önce kasada kaç para vardı?"
+    let cycleStartBalance = balance;
+
+    // En yeni -> en eski, ilk "win" görünce dur
+    for (let h of app.history) {
+        if (h.status === 'win') break;
+        // pending veya loss ise, bu tutar döngü başında kasadaydı → geri ekle
+        if (h.status === 'pending' || h.status === 'loss') {
+            cycleStartBalance += h.amount;
+        }
+    }
+
+    // Plan hesapla & tabloyu çiz
+    calculateAndRenderPlan(cycleStartBalance, odds, steps, currentStep);
+
+    // Özet (başlangıç, son, net kâr, büyüme)
+    calculateSummary(balance);
+
+    // Daha gerçekçi istatistiksel tahmin
+    updateProjection(balance, odds, target);
+
+    // Input değerlerini bu kasaya kaydet
+    app.savedInputs = { balance, odds, steps, target };
+    save();
+
+    // Referans bilgileri
+    document.getElementById('planBaseRef').innerText = fmtMoney(cycleStartBalance);
+    document.getElementById('planStepRef').innerText = steps;
+
+    // Adım göstergesi
+    const stepIndicator = document.getElementById('stepIndicator');
+    if (currentStep <= steps) {
+        stepIndicator.innerText = `ADIM ${currentStep} / ${steps}`;
+        stepIndicator.style.color = "var(--blue)";
+    } else {
+        stepIndicator.innerText = "RİSKLİ BÖLGE";
+        stepIndicator.style.color = "var(--red)";
+    }
+
+    // Geçmiş tabloyu yenile
+    renderHistory();
+}
+
+        // Adım Hesapla
+        const currentStep = calculateCurrentStep(app.history, steps);
+        
+        // --- DÜZELTİLEN PLAN MANTIĞI ---
+        // Plan Döngü boyunca sabit kalmalı. "Kazandı" görene kadar geriye git ve parayı topla.
+        // Bu "Sanal Başlangıç Bakiyesi" (CycleBase) olur.
+        
+        let cycleStartBalance = balance;
+        // Geçmiş en yeni -> en eski sıralı.
+        for(let h of app.history) {
+            // Eğer "Kazandı" görürsek, ondan öncesi eski döngüdür, dur.
+            if(h.status === 'win') break;
+            
+            // Eğer "Bekliyor" veya "Kaybetti" ise, bu para döngü başında kasadaydı, geri ekle.
+            cycleStartBalance += h.amount;
+        }
+
+        calculateAndRenderPlan(cycleStartBalance, odds, steps, currentStep);
+        calculateSummary(balance); 
+
+        app.savedInputs = { balance, odds, steps, target };
+        save();
+        
+        document.getElementById('planBaseRef').innerText = fmtMoney(cycleStartBalance);
+        document.getElementById('planStepRef').innerText = steps;
+        
+        document.getElementById('stepIndicator').innerText = `ADIM ${currentStep} / ${steps}`;
+        if(currentStep > steps) {
+            document.getElementById('stepIndicator').innerText = "RİSKLİ BÖLGE";
+            document.getElementById('stepIndicator').style.color = "var(--red)";
+        } else {
+            document.getElementById('stepIndicator').style.color = "var(--blue)";
+        }
+
+        renderHistory();
+    }
+
+    // --- ADIM HESAPLAMA (DÜZELTİLMİŞ) ---
+function calculateCurrentStep(history, maxSteps) {
+    // Hiç bitmiş kupon yoksa her zaman 1. adımdayız
+    const finished = history.filter(h => h.status !== 'pending');
+    if (finished.length === 0) return 1;
+
+    // finished: en yeni -> en eski (unshift kullandığın için)
+    const lastFinished = finished[0];
+
+    // En son biten kupon kazandıysa döngü resetlenir
+    if (lastFinished.status === 'win') {
+        return 1;
+    }
+
+    // En yeni kayıpları üst üste say, ilk win'de kır
+    let lossCount = 0;
+    for (const h of finished) {
+        if (h.status === 'loss') lossCount++;
+        else break;
+    }
+
+    let step = lossCount + 1;
+
+    // step > maxSteps ise "riskli bölge" say, ama hesap tarafında maxSteps+1'e kilitle
+    if (typeof maxSteps === 'number' && maxSteps > 0) {
+        step = Math.min(step, maxSteps + 1);
+    }
+
+    return step;
+}
+
+    // --- KUPON İŞLEMLERİ (Kayıt, Düzeltme, Silme) ---
+    function saveCoupon() {
+        const amount = parseFloat(document.getElementById('betAmount').value);
+        const odds = parseFloat(document.getElementById('betOdds').value);
+        let currentBalance = parseFloat(document.getElementById('currentBalance').value);
+        const steps = parseInt(document.getElementById('totalSteps').value);
+        
+        // Adımı o anki duruma göre hesapla ve kaydet
+        const stepCalc = calculateCurrentStep(app.history, steps);
+
+        if(!amount || !odds) return alert("Lütfen tutar ve oran girin.");
+
+        currentBalance -= amount;
+        document.getElementById('currentBalance').value = currentBalance.toFixed(2);
+
+        app.history.unshift({
+            id: Date.now(),
+            step: stepCalc,
+            amount: amount,
+            odds: odds,
+            status: 'pending'
+        });
+
+        document.getElementById('betAmount').value = '';
+        updateData();
+    }
+
+    function setResult(id, result) {
+        const item = app.history.find(h => h.id === id);
+        if(!item) return;
+
+        let currentBalance = parseFloat(document.getElementById('currentBalance').value);
+
+        if(result === 'win') {
+            const winAmount = item.amount * item.odds;
+            currentBalance += winAmount;
+            item.status = 'win';
+        } else if (result === 'loss') {
+            item.status = 'loss';
+        }
+
+        document.getElementById('currentBalance').value = currentBalance.toFixed(2);
+        updateData();
+    }
+
+    function undoResult(id) {
+        const item = app.history.find(h => h.id === id);
+        if(!item) return;
+
+        let currentBalance = parseFloat(document.getElementById('currentBalance').value);
+
+        if(item.status === 'win') {
+            currentBalance -= (item.amount * item.odds);
+        }
+        // Loss ise para zaten düşmüştü, bakiyeye dokunma.
+        
+        item.status = 'pending';
+        document.getElementById('currentBalance').value = currentBalance.toFixed(2);
+        updateData();
+    }
+
+    function deleteCoupon(id) {
+        const itemIndex = app.history.findIndex(h => h.id === id);
+        if(itemIndex === -1) return;
+        const item = app.history[itemIndex];
+
+        if(!confirm("Silmek istediğinize emin misiniz? Bakiye düzeltilecek.")) return;
+
+        let currentBalance = parseFloat(document.getElementById('currentBalance').value);
+
+        if(item.status === 'pending') {
+            currentBalance += item.amount;
+        } else if (item.status === 'loss') {
+            currentBalance += item.amount;
+        } else if (item.status === 'win') {
+            currentBalance = currentBalance - (item.amount * item.odds) + item.amount;
+        }
+
+        app.history.splice(itemIndex, 1);
+        document.getElementById('currentBalance').value = currentBalance.toFixed(2);
+        updateData();
+    }
+
+    // --- TABLO RENDER ---
+    function renderHistory() {
+        const tbody = document.getElementById('historyBody');
+        tbody.innerHTML = "";
+        
+        if(!app || !app.history) return;
+
+        app.history.forEach((h) => {
+            let grossReturn = h.amount * h.odds;
+            let statusHtml = '';
+            
+            if(h.status === 'pending') {
+                statusHtml = `
+                    <button class="action-btn btn-check" onclick="setResult(${h.id}, 'win')">✔</button>
+                    <button class="action-btn btn-cross" onclick="setResult(${h.id}, 'loss')">✖</button>
+                    <span style="font-size:0.75em; color:#999; display:block;">Bekliyor</span>
+                `;
+            } else if (h.status === 'win') {
+                statusHtml = `
+                    <span class="status-badge st-win">KAZANDI</span>
+                    <button class="action-btn btn-undo" onclick="undoResult(${h.id})" title="Geri Al">↺</button>
+                `;
+            } else {
+                statusHtml = `
+                    <span class="status-badge st-loss">KAYBETTİ</span>
+                    <button class="action-btn btn-undo" onclick="undoResult(${h.id})" title="Geri Al">↺</button>
+                `;
+            }
+
+            let returnColor = '#555';
+            if(h.status === 'win') returnColor = 'var(--green)';
+            
+            let row = `<tr>
+                <td>${h.step}</td>
+                <td>${fmtMoney(h.amount)}</td>
+                <td>${fmtNum(h.odds)}</td>
+                <td style="color:${returnColor}; font-weight:bold;">${fmtMoney(grossReturn)}</td>
+                <td>${statusHtml}</td>
+                <td><button class="action-btn btn-del" onclick="deleteCoupon(${h.id})">🗑</button></td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    }
+
+    // --- HESAPLAMA MOTORU (PLAN: GEOMETRİK ARTIŞ) ---
+function calculateAndRenderPlan(cycleBalance, odds, totalSteps, currentStep) {
+    const tbody = document.getElementById('planBody');
+    tbody.innerHTML = "";
+
+    // Temel validasyon
+    if (!cycleBalance || cycleBalance <= 0 || !totalSteps || totalSteps <= 0) {
+        return;
+    }
+
+    // Oran 1 veya daha küçükse plan mantıksız → tabloyu boş bırak, projeksiyonu da updateProjection halledecek
+    if (!odds || odds <= 1) {
+        return;
+    }
+
+    // 1. Ağırlıkları Hesapla (Geometrik Seri)
+    // growthFactor = Odds / (Odds - 1)
+    let weights = [];
+    let currentWeightSum = 0;
+    const growthFactor = odds / (odds - 1);
+
+    // Adım 1'in ağırlığı her zaman 1
+    weights.push(1);
+    currentWeightSum += 1;
+
+    for (let i = 1; i < totalSteps; i++) {
+        const nextWeight = weights[i - 1] * growthFactor;
+        weights.push(nextWeight);
+        currentWeightSum += nextWeight;
+    }
+
+    // 2. Birim Değeri Bul ve Dağıt
+    const unitValue = cycleBalance / currentWeightSum;
+    const planAmounts = weights.map(w => w * unitValue);
+
+    let suggestedBet = 0;
+
+    planAmounts.forEach((amt, index) => {
+        const stepNum = index + 1;
+        const isCurrent = (stepNum === currentStep);
+        if (isCurrent) suggestedBet = amt;
+
+        const row = `
+            <tr class="${isCurrent ? 'current-row' : ''}">
+                <td>${stepNum}. Tur ${isCurrent ? '👉' : ''}</td>
+                <td><strong>${fmtMoney(Math.floor(amt))}</strong></td>
+                <td style="color:#27ae60">${fmtMoney(Math.floor(amt * odds))}</td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+
+    // Sadece adım plan dahilindeyse otomatik doldur
+    if (currentStep <= totalSteps) {
+        const betAmountInput = document.getElementById('betAmount');
+        const betOddsInput = document.getElementById('betOdds');
+
+        if (document.activeElement !== betAmountInput) {
+            betAmountInput.value = Math.floor(suggestedBet);
+        }
+        if (document.activeElement !== betOddsInput) {
+            betOddsInput.value = odds;
+        }
+    }
+}
+        
+        // Tahmini
+        const wins = app.history.filter(h => h.status === 'win').length;
+        const totalWinOdds = app.history.filter(h => h.status === 'win').reduce((sum, h) => sum + h.odds, 0);
+        const rawAvgOdds = wins > 0 ? (totalWinOdds / wins) : 0;
+        const remaining = parseInt(document.getElementById('dispRemaining').innerText) || 0;
+
+        if(rawAvgOdds > 1 && remaining > 0) {
+            let currentBalance = parseFloat(document.getElementById('currentBalance').value) || 0;
+            const baseBet = planAmounts[0]; 
+            const investmentRatio = baseBet / cycleBalance;
+            const growthFactor2 = 1 + (investmentRatio * (rawAvgOdds - 1));
+            const projectedFinalBalance = currentBalance * Math.pow(growthFactor2, remaining);
+            document.getElementById('dispProjected').innerText = fmtMoney(projectedFinalBalance);
+        } else if (remaining === 0) {
+            document.getElementById('dispProjected').innerText = "BİTTİ";
+        } else {
+            document.getElementById('dispProjected').innerText = "-";
+        }
+    }
+
+    function calculateSummary(currentBalance) {
+        let realizedPnL = 0;
+        app.history.forEach(h => {
+            if(h.status === 'win') realizedPnL += (h.amount * h.odds) - h.amount;
+            else if(h.status === 'loss') realizedPnL -= h.amount;
+        });
+
+        const pendingTotal = app.history.filter(h => h.status === 'pending').reduce((s, h) => s + h.amount, 0);
+        let startBalance = currentBalance + pendingTotal - realizedPnL;
+        
+        let growthPercent = 0;
+        if(startBalance > 0) {
+            growthPercent = (realizedPnL / startBalance) * 100;
+        }
+
+        document.getElementById('sumStart').innerText = fmtMoney(startBalance);
+        document.getElementById('sumEnd').innerText = fmtMoney(currentBalance);
+        
+        const profitEl = document.getElementById('sumProfit');
+        profitEl.innerText = (realizedPnL > 0 ? "+" : "") + fmtMoney(realizedPnL);
+        profitEl.style.color = realizedPnL >= 0 ? "#2ecc71" : "#e74c3c"; 
+
+        const percentEl = document.getElementById('sumPercent');
+        percentEl.innerText = "%" + fmtNum(growthPercent);
+        percentEl.style.color = growthPercent >= 0 ? "#2ecc71" : "#e74c3c";
+    }
+
+    function save() {
+        localStorage.setItem('kasaV14_fixedMath', JSON.stringify(globalState));
+    }
+
+    function hardReset() {
+        if(confirm(`Bu kasa sıfırlanacak. Emin misiniz?`)) {
+            globalState.portfolios[globalState.activeIndex] = { history: [], savedInputs: null };
+            save();
+            switchKasa(globalState.activeIndex);
+        }
+    }
+
+// --- DAHA GERÇEKÇİ İSTATİSTİKSEL TAHMİN (dispProjected) ---
+function updateProjection(currentBalance, planOdds, targetWins) {
+    const projectedEl = document.getElementById('dispProjected');
+
+    if (!app || !app.history) {
+        projectedEl.innerText = "-";
+        return;
+    }
+
+    const history = app.history;
+    const finished = history.filter(h => h.status !== 'pending');
+    const wins = finished.filter(h => h.status === 'win').length;
+    const losses = finished.filter(h => h.status === 'loss').length;
+    const totalBets = wins + losses;
+
+    const remainingWins = Math.max(0, targetWins - wins);
+
+    // Hedef zaten tamamlanmışsa
+    if (remainingWins === 0) {
+        projectedEl.innerText = "BİTTİ";
+        return;
+    }
+
+    // Veri çok azsa projeksiyon yapma (min 5 biten kupon şartı)
+    if (totalBets < 5) {
+        projectedEl.innerText = "-";
+        return;
+    }
+
+    const pHat = wins / totalBets; // Tarihsel isabet oranı
+
+    // Hiç tutturamamışsa ya da oran anlamsızsa projeksiyon yapma
+    if (!isFinite(pHat) || pHat <= 0) {
+        projectedEl.innerText = "-";
+        return;
+    }
+
+    // Kazanan kuponların ortalama oranı
+    const totalWinOdds = finished
+        .filter(h => h.status === 'win')
+        .reduce((sum, h) => sum + h.odds, 0);
+
+    const avgOdds = wins > 0 ? (totalWinOdds / wins) : (planOdds > 1 ? planOdds : 2.0);
+
+    // Ortalama oynanan tutar
+    const totalStake = finished.reduce((sum, h) => sum + h.amount, 0);
+    const avgStake = totalStake / totalBets;
+
+    // Tek kuponun beklenen değeri (EV)
+    const evPerBet = avgStake * (pHat * (avgOdds - 1) - (1 - pHat));
+
+    // Hedef kalan win sayısı için beklenen kupon sayısı
+    const expectedBetsToGoal = remainingWins / pHat;
+
+    const projectedFinalBalance = currentBalance + evPerBet * expectedBetsToGoal;
+
+    // Çok uçuk negatif/pozitif ise biraz sınır koyabilirsin (opsiyonel)
+    if (!isFinite(projectedFinalBalance)) {
+        projectedEl.innerText = "-";
+        return;
+    }
+
+    projectedEl.innerText = fmtMoney(projectedFinalBalance);
+}
+
+    // Tüm kasaları sıfırlayan yeni fonksiyon
+    function resetAllKasas() {
+        if(!confirm("TÜM kasalar sıfırlanacak. Emin misiniz?")) return;
+        globalState = {
+            activeIndex: 0,
+            portfolios: [
+                { history: [], savedInputs: null },
+                { history: [], savedInputs: null },
+                { history: [], savedInputs: null }
+            ]
+        };
+        save();
+        switchKasa(0);
+    }
+</script>
+
+</body>
+</html>
