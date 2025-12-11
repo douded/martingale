@@ -157,9 +157,3 @@ Burada kullanılan mantık:
    - Kalan: `remainingWins = targetWins - wins`
    - Bu turun kuponunu kazandığını zaten varsaydığımız için:
      - Gelecek için **kalan win sayısı**: `remainingWins - 1` (0’dan küçükse 0 alınır)
-
-6. **Nihai Tahmin**
-   ```text
-   Tahmini Son Kasa =
-       (cycleBaseBalance + stake_current × (avgOdds - 1))
-       × (growthFactorPerWin) ^ (remainingWins - 1)
